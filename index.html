@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Château d'eau</title>
+<title>Château d'eau · Irissarry</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
@@ -284,10 +284,6 @@
     <label for="in-key">Read API Key (si channel privé)</label>
     <input type="text" id="in-key" placeholder="laisser vide si channel public">
   </div>
-  <div class="field">
-    <label for="in-capacity">Capacité totale du réservoir (litres)</label>
-    <input type="text" id="in-capacity" placeholder="ex. 5000 (laisser vide pour ne pas afficher le volume)" inputmode="numeric">
-  </div>
   <button class="save-btn" id="btn-save">Afficher le niveau</button>
   <p class="help">Le channel et la clé sont enregistrés uniquement sur cet appareil. Une fois configuré, tu peux ajouter cette page à l'écran d'accueil de ton téléphone.</p>
 </div>
@@ -319,7 +315,6 @@
   </div>
   <p class="status" id="status">Chargement...</p>
   <p class="meta" id="meta"></p>
-  <p class="meta" id="volume"></p>
   <div class="trend-tabs" id="trendTabs">
     <button class="trend-tab active" data-period="hier">Hier</button>
     <button class="trend-tab" data-period="semaine">Semaine</button>
@@ -364,7 +359,6 @@ const dashEl = document.getElementById('dashboard');
 const pctEl = document.getElementById('pct');
 const statusEl = document.getElementById('status');
 const metaEl = document.getElementById('meta');
-const volumeEl = document.getElementById('volume');
 const trendEl = document.getElementById('trend');
 let latestPct = null;
 const errorEl = document.getElementById('error');
@@ -384,23 +378,16 @@ function getConfig(){
   const params = new URLSearchParams(window.location.search);
   const channel = params.get('channel') || localStorage.getItem('ts_channel') || '';
   const key = params.get('key') || localStorage.getItem('ts_key') || '';
-  const capacity = params.get('capacity') || localStorage.getItem('ts_capacity') || '';
-  return {channel, key, capacity};
+  return {channel, key};
 }
 
-function saveConfig(channel, key, capacity){
+function saveConfig(channel, key){
   localStorage.setItem('ts_channel', channel);
   localStorage.setItem('ts_key', key);
-  localStorage.setItem('ts_capacity', capacity);
   const url = new URL(window.location.href);
   url.searchParams.set('channel', channel);
   if (key) url.searchParams.set('key', key);
-  if (capacity) url.searchParams.set('capacity', capacity);
   window.history.replaceState({}, '', url);
-}
-
-function formatLiters(n){
-  return Math.round(n).toLocaleString('fr-FR') + ' L';
 }
 
 function statusFor(pct){
@@ -478,15 +465,6 @@ async function loadLatest(){
     statusEl.textContent = st.label;
     statusEl.style.color = st.color;
     metaEl.textContent = 'Mis à jour ' + relativeTime(createdAt) + ' · ' + createdAt.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-
-    const {capacity} = getConfig();
-    const cap = parseFloat(capacity);
-    if (cap && cap > 0){
-      volumeEl.textContent = formatLiters(pct / 100 * cap) + ' / ' + formatLiters(cap);
-      volumeEl.classList.remove('hidden');
-    } else {
-      volumeEl.textContent = '';
-    }
 
     fillEl.setAttribute('height', (pct / 100 * 130).toFixed(1));
     fillEl.setAttribute('y', (140 - (pct / 100 * 130)).toFixed(1));
@@ -680,9 +658,8 @@ function drawChart(points){
 document.getElementById('btn-save').addEventListener('click', () => {
   const channel = document.getElementById('in-channel').value.trim();
   const key = document.getElementById('in-key').value.trim();
-  const capacity = document.getElementById('in-capacity').value.trim();
   if (!channel) return;
-  saveConfig(channel, key, capacity);
+  saveConfig(channel, key);
   loadLatest();
   loadHistory(currentPeriod);
 });
@@ -693,31 +670,22 @@ document.getElementById('btn-refresh').addEventListener('click', () => {
 });
 
 document.getElementById('btn-settings').addEventListener('click', () => {
-  const {channel, key, capacity} = getConfig();
+  const {channel, key} = getConfig();
   document.getElementById('in-channel').value = channel;
   document.getElementById('in-key').value = key;
-  document.getElementById('in-capacity').value = capacity;
   setupEl.classList.remove('hidden');
   dashEl.classList.add('hidden');
 });
 
 document.getElementById('btn-export').addEventListener('click', () => {
   if (currentHistoryPoints.length === 0) return;
-  const {capacity} = getConfig();
-  const cap = parseFloat(capacity);
-  const hasCap = cap && cap > 0;
 
-  let csv = hasCap ? 'Date;Heure;Niveau (%);Volume (L)\n' : 'Date;Heure;Niveau (%)\n';
+  let csv = 'Date;Heure;Niveau (%)\n';
   currentHistoryPoints.forEach(p => {
     const d = p.t.toLocaleDateString('fr-FR');
     const h = p.t.toLocaleTimeString('fr-FR');
     const pct = Math.round(p.v * 10) / 10;
-    if (hasCap){
-      const vol = Math.round(p.v / 100 * cap);
-      csv += `${d};${h};${pct};${vol}\n`;
-    } else {
-      csv += `${d};${h};${pct}\n`;
-    }
+    csv += `${d};${h};${pct}\n`;
   });
 
   const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
