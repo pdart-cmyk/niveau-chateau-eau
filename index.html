@@ -26,18 +26,22 @@
     font-family:'Inter',sans-serif;
     min-height:100vh;
     display:flex;
-    align-items:center;
+    align-items:flex-start;
     justify-content:center;
-    padding:24px;
+    padding:24px 16px;
   }
   .card{
     width:100%;
-    max-width:380px;
+    max-width:420px;
     background:var(--surface);
     border:1px solid var(--border);
     border-radius:20px;
     padding:32px 28px 28px;
     text-align:center;
+    transition:box-shadow 0.4s ease;
+  }
+  .card.critical{
+    box-shadow:0 0 0 2px var(--alert);
   }
   .eyebrow{
     font-family:'Fraunces',serif;
@@ -59,6 +63,12 @@
     height:160px;
     margin:0 auto 20px;
   }
+  .readout-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+  }
   .readout{
     font-family:'JetBrains Mono',monospace;
     font-weight:700;
@@ -66,25 +76,78 @@
     line-height:1;
     margin:0 0 4px;
   }
+  .warn-icon{
+    font-size:22px;
+    line-height:1;
+    display:none;
+  }
+  .warn-icon.show{display:inline-block;}
+  @media (prefers-reduced-motion: no-preference){
+    .warn-icon.show{animation:pulse 1.4s ease-in-out infinite;}
+  }
+  @keyframes pulse{
+    0%,100%{opacity:1;transform:scale(1);}
+    50%{opacity:0.35;transform:scale(1.15);}
+  }
   .status{
     font-size:13px;
     font-weight:500;
-    margin:0 0 22px;
+    margin:0 0 14px;
   }
   .meta{
     font-size:12px;
     color:var(--muted);
-    margin:0 0 18px;
+    margin:0 0 4px;
   }
-  .spark{
-    width:100%;
-    height:36px;
+  .trend-tabs{
+    display:inline-flex;
+    gap:3px;
+    background:rgba(35,38,43,0.06);
+    border-radius:8px;
+    padding:2px;
+    margin-bottom:6px;
+  }
+  .trend-tab{
+    border:none;
+    background:transparent;
+    padding:3px 8px;
+    font-size:11px;
+    border-radius:6px;
+    color:var(--muted);
+  }
+  .trend-tab.active{
+    background:var(--water);
+    color:#fff;
+  }
+  .trend{
+    font-size:12px;
+    font-weight:500;
+    margin:2px 0 4px;
+  }
+  .badge-row{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:6px;
     margin-bottom:22px;
+  }
+  .badge{
+    font-size:11px;
+    font-weight:500;
+    padding:3px 9px;
+    border-radius:100px;
+    background:rgba(44,95,111,0.10);
+    color:var(--water);
+  }
+  .badge.weak{
+    background:rgba(168,80,59,0.12);
+    color:var(--alert);
   }
   .actions{
     display:flex;
     gap:8px;
     justify-content:center;
+    margin-top:22px;
   }
   button{
     font-family:'Inter',sans-serif;
@@ -138,6 +201,66 @@
     line-height:1.5;
     margin-top:16px;
   }
+  .history{
+    margin-top:28px;
+    padding-top:24px;
+    border-top:1px solid var(--border);
+    text-align:left;
+  }
+  .history-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .history-title{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:14px;
+    margin:0;
+  }
+  .tabs{
+    display:flex;
+    gap:4px;
+    background:rgba(35,38,43,0.06);
+    border-radius:10px;
+    padding:3px;
+  }
+  .tab{
+    border:none;
+    background:transparent;
+    padding:5px 10px;
+    font-size:12px;
+    border-radius:8px;
+    color:var(--muted);
+  }
+  .tab.active{
+    background:var(--water);
+    color:#fff;
+  }
+  .export-row{margin:10px 0 14px;}
+  .export-row button{font-size:12px;padding:6px 12px;}
+  .chart-wrap{position:relative;}
+  #chart{width:100%;height:110px;display:block;}
+  .chart-labels{
+    display:flex;
+    justify-content:space-between;
+    font-size:11px;
+    color:var(--muted);
+    margin-top:4px;
+  }
+  .tooltip{
+    position:absolute;
+    background:var(--ink);
+    color:#fff;
+    font-size:11px;
+    padding:4px 8px;
+    border-radius:6px;
+    pointer-events:none;
+    transform:translate(-50%,-130%);
+    white-space:nowrap;
+    display:none;
+  }
   @media (prefers-reduced-motion: no-preference){
     .fill{transition:y 0.8s ease, height 0.8s ease;}
     .wave{animation:drift 3.5s linear infinite;}
@@ -160,6 +283,10 @@
   <div class="field">
     <label for="in-key">Read API Key (si channel privé)</label>
     <input type="text" id="in-key" placeholder="laisser vide si channel public">
+  </div>
+  <div class="field">
+    <label for="in-capacity">Capacité totale du réservoir (litres)</label>
+    <input type="text" id="in-capacity" placeholder="ex. 5000 (laisser vide pour ne pas afficher le volume)" inputmode="numeric">
   </div>
   <button class="save-btn" id="btn-save">Afficher le niveau</button>
   <p class="help">Le channel et la clé sont enregistrés uniquement sur cet appareil. Une fois configuré, tu peux ajouter cette page à l'écran d'accueil de ton téléphone.</p>
@@ -186,16 +313,48 @@
     </svg>
   </div>
 
-  <p class="readout" id="pct">—</p>
+  <div class="readout-row">
+    <p class="readout" id="pct">—</p>
+    <span class="warn-icon" id="warnIcon">⚠</span>
+  </div>
   <p class="status" id="status">Chargement...</p>
   <p class="meta" id="meta"></p>
-  <svg class="spark" id="spark" viewBox="0 0 200 36" preserveAspectRatio="none"></svg>
+  <p class="meta" id="volume"></p>
+  <div class="trend-tabs" id="trendTabs">
+    <button class="trend-tab active" data-period="hier">Hier</button>
+    <button class="trend-tab" data-period="semaine">Semaine</button>
+    <button class="trend-tab" data-period="mois">Mois</button>
+  </div>
+  <p class="trend" id="trend"></p>
+  <div class="badge-row" id="badgeRow"></div>
 
   <p class="error hidden" id="error"></p>
 
   <div class="actions">
     <button id="btn-refresh">Actualiser</button>
     <button class="gear" id="btn-settings" aria-label="Réglages">⚙</button>
+  </div>
+
+  <div class="history">
+    <div class="history-head">
+      <p class="history-title">Historique</p>
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-period="24h">24h</button>
+        <button class="tab" data-period="7j">7 j</button>
+        <button class="tab" data-period="30j">30 j</button>
+      </div>
+    </div>
+    <div class="export-row">
+      <button id="btn-export">Exporter en CSV</button>
+    </div>
+    <div class="chart-wrap">
+      <svg id="chart" viewBox="0 0 300 110" preserveAspectRatio="none"></svg>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <div class="chart-labels">
+      <span id="rangeStart"></span>
+      <span id="rangeEnd"></span>
+    </div>
   </div>
 </div>
 
@@ -205,32 +364,56 @@ const dashEl = document.getElementById('dashboard');
 const pctEl = document.getElementById('pct');
 const statusEl = document.getElementById('status');
 const metaEl = document.getElementById('meta');
+const volumeEl = document.getElementById('volume');
+const trendEl = document.getElementById('trend');
+let latestPct = null;
 const errorEl = document.getElementById('error');
 const fillEl = document.getElementById('fill');
 const waveEl = document.getElementById('wave');
-const sparkEl = document.getElementById('spark');
+const warnIcon = document.getElementById('warnIcon');
+const badgeRow = document.getElementById('badgeRow');
+const chartEl = document.getElementById('chart');
+const tooltipEl = document.getElementById('tooltip');
+const rangeStartEl = document.getElementById('rangeStart');
+const rangeEndEl = document.getElementById('rangeEnd');
+
+let currentPeriod = '24h';
+let currentHistoryPoints = [];
 
 function getConfig(){
   const params = new URLSearchParams(window.location.search);
   const channel = params.get('channel') || localStorage.getItem('ts_channel') || '';
   const key = params.get('key') || localStorage.getItem('ts_key') || '';
-  return {channel, key};
+  const capacity = params.get('capacity') || localStorage.getItem('ts_capacity') || '';
+  return {channel, key, capacity};
 }
 
-function saveConfig(channel, key){
+function saveConfig(channel, key, capacity){
   localStorage.setItem('ts_channel', channel);
   localStorage.setItem('ts_key', key);
+  localStorage.setItem('ts_capacity', capacity);
   const url = new URL(window.location.href);
   url.searchParams.set('channel', channel);
   if (key) url.searchParams.set('key', key);
+  if (capacity) url.searchParams.set('capacity', capacity);
   window.history.replaceState({}, '', url);
 }
 
+function formatLiters(n){
+  return Math.round(n).toLocaleString('fr-FR') + ' L';
+}
+
 function statusFor(pct){
-  if (pct >= 50) return {label: 'Bon niveau', color: 'var(--water)'};
-  if (pct >= 20) return {label: 'Niveau correct', color: 'var(--water)'};
-  if (pct >= 10) return {label: 'Niveau bas', color: 'var(--alert)'};
-  return {label: 'Niveau critique', color: 'var(--alert)'};
+  if (pct >= 50) return {label: 'Bon niveau', color: 'var(--water)', critical:false};
+  if (pct >= 20) return {label: 'Niveau correct', color: 'var(--water)', critical:false};
+  if (pct >= 10) return {label: 'Niveau bas', color: 'var(--alert)', critical:false};
+  return {label: 'Niveau critique', color: 'var(--alert)', critical:true};
+}
+
+function rssiQuality(rssi){
+  if (rssi >= -90) return {label:'Bon', weak:false};
+  if (rssi >= -105) return {label:'Moyen', weak:false};
+  return {label:'Faible', weak:true};
 }
 
 function relativeTime(date){
@@ -244,36 +427,20 @@ function relativeTime(date){
   return `il y a ${days} j`;
 }
 
-function drawSparkline(values){
-  sparkEl.innerHTML = '';
-  const nums = values.filter(v => v !== null && !isNaN(v));
-  if (nums.length < 2) return;
-  const min = Math.min(...nums);
-  const max = Math.max(...nums);
-  const range = (max - min) || 1;
-  const stepX = 200 / (nums.length - 1);
-  const points = nums.map((v, i) => {
-    const x = i * stepX;
-    const y = 32 - ((v - min) / range) * 28;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
-  const ns = 'http://www.w3.org/2000/svg';
-  const line = document.createElementNS(ns, 'polyline');
-  line.setAttribute('points', points);
-  line.setAttribute('fill', 'none');
-  line.setAttribute('stroke', 'var(--water)');
-  line.setAttribute('stroke-width', '2');
-  line.setAttribute('stroke-linecap', 'round');
-  line.setAttribute('stroke-linejoin', 'round');
-  sparkEl.appendChild(line);
-}
-
 function showError(msg){
   errorEl.textContent = msg;
   errorEl.classList.remove('hidden');
 }
 
-async function loadData(){
+function downsample(arr, maxPoints){
+  if (arr.length <= maxPoints) return arr;
+  const factor = Math.ceil(arr.length / maxPoints);
+  const out = [];
+  for (let i = 0; i < arr.length; i += factor) out.push(arr[i]);
+  return out;
+}
+
+async function loadLatest(){
   const {channel, key} = getConfig();
   if (!channel){
     setupEl.classList.remove('hidden');
@@ -285,7 +452,7 @@ async function loadData(){
   errorEl.classList.add('hidden');
 
   const keyParam = key ? `&api_key=${encodeURIComponent(key)}` : '';
-  const url = `https://api.thingspeak.com/channels/${encodeURIComponent(channel)}/feeds.json?results=60${keyParam}`;
+  const url = `https://api.thingspeak.com/channels/${encodeURIComponent(channel)}/feeds.json?results=1${keyParam}`;
 
   try {
     const res = await fetch(url);
@@ -297,6 +464,7 @@ async function loadData(){
       pctEl.textContent = '—';
       statusEl.textContent = '';
       metaEl.textContent = '';
+      badgeRow.innerHTML = '';
       return;
     }
 
@@ -305,43 +473,285 @@ async function loadData(){
     const createdAt = new Date(last.created_at);
 
     pctEl.textContent = Math.round(pct) + ' %';
+    latestPct = pct;
     const st = statusFor(pct);
     statusEl.textContent = st.label;
     statusEl.style.color = st.color;
     metaEl.textContent = 'Mis à jour ' + relativeTime(createdAt) + ' · ' + createdAt.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+
+    const {capacity} = getConfig();
+    const cap = parseFloat(capacity);
+    if (cap && cap > 0){
+      volumeEl.textContent = formatLiters(pct / 100 * cap) + ' / ' + formatLiters(cap);
+      volumeEl.classList.remove('hidden');
+    } else {
+      volumeEl.textContent = '';
+    }
 
     fillEl.setAttribute('height', (pct / 100 * 130).toFixed(1));
     fillEl.setAttribute('y', (140 - (pct / 100 * 130)).toFixed(1));
     waveEl.setAttribute('transform', `translate(0, ${(140 - (pct / 100 * 130) - 10).toFixed(1)})`);
     fillEl.setAttribute('fill', st.color);
 
-    drawSparkline(feeds.map(f => parseFloat(f.field1)));
+    warnIcon.classList.toggle('show', st.critical);
+    document.getElementById('dashboard').classList.toggle('critical', st.critical);
+
+    badgeRow.innerHTML = '';
+    if (last.field3 !== null && last.field3 !== undefined && last.field3 !== ''){
+      const battPct = parseFloat(last.field3);
+      const span = document.createElement('span');
+      span.className = 'badge' + (battPct < 20 ? ' weak' : '');
+      span.textContent = `Batterie récepteur ${Math.round(battPct)}%`;
+      badgeRow.appendChild(span);
+    }
+    if (last.field4 !== null && last.field4 !== undefined && last.field4 !== ''){
+      const rssi = parseFloat(last.field4);
+      const q = rssiQuality(rssi);
+      const span = document.createElement('span');
+      span.className = 'badge' + (q.weak ? ' weak' : '');
+      span.textContent = `Signal ${q.label} · ${Math.round(rssi)} dBm`;
+      badgeRow.appendChild(span);
+    }
   } catch (e){
     showError("Impossible de récupérer les données. Vérifie ta connexion internet, ou le numéro de channel / la clé si le channel est privé.");
   }
+
+  loadTrend();
+}
+
+function trendConfig(period){
+  if (period === 'hier') return {days: 1, average: null, label: 'depuis hier'};
+  if (period === 'semaine') return {days: 7, average: 60, label: 'depuis la semaine dernière'};
+  return {days: 30, average: 1440, label: 'depuis le mois dernier'};
+}
+
+let currentTrendPeriod = 'hier';
+
+async function loadTrend(){
+  const {channel, key} = getConfig();
+  if (!channel || latestPct === null) return;
+
+  const cfg = trendConfig(currentTrendPeriod);
+  const keyParam = key ? `&api_key=${encodeURIComponent(key)}` : '';
+  const avgParam = cfg.average ? `&average=${cfg.average}` : '';
+  const url = `https://api.thingspeak.com/channels/${encodeURIComponent(channel)}/fields/1.json?days=${cfg.days}${avgParam}${keyParam}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('http_' + res.status);
+    const data = await res.json();
+    const feeds = (data.feeds || []).filter(f => f.field1 !== null && f.field1 !== undefined && f.field1 !== '');
+    if (feeds.length < 2){
+      trendEl.textContent = "Pas assez d'historique pour comparer.";
+      trendEl.style.color = 'var(--muted)';
+      return;
+    }
+    const pastPct = parseFloat(feeds[0].field1);
+    const delta = latestPct - pastPct;
+
+    if (Math.abs(delta) <= 1){
+      trendEl.textContent = `→ stable ${cfg.label}`;
+      trendEl.style.color = 'var(--muted)';
+    } else if (delta > 0){
+      trendEl.textContent = `▲ +${Math.round(delta)} % ${cfg.label}`;
+      trendEl.style.color = 'var(--water)';
+    } else {
+      trendEl.textContent = `▼ ${Math.round(delta)} % ${cfg.label}`;
+      trendEl.style.color = 'var(--alert)';
+    }
+  } catch (e){
+    trendEl.textContent = '';
+  }
+}
+
+function periodConfig(period){
+  if (period === '24h') return {days: 1, average: null, maxPoints: 288};
+  if (period === '7j') return {days: 7, average: 15, maxPoints: 400};
+  return {days: 30, average: 60, maxPoints: 400};
+}
+
+async function loadHistory(period){
+  const {channel, key} = getConfig();
+  if (!channel) return;
+
+  const cfg = periodConfig(period);
+  const keyParam = key ? `&api_key=${encodeURIComponent(key)}` : '';
+  const avgParam = cfg.average ? `&average=${cfg.average}` : '';
+  const url = `https://api.thingspeak.com/channels/${encodeURIComponent(channel)}/fields/1.json?days=${cfg.days}${avgParam}${keyParam}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('http_' + res.status);
+    const data = await res.json();
+    let points = (data.feeds || [])
+      .filter(f => f.field1 !== null && f.field1 !== undefined && f.field1 !== '')
+      .map(f => ({t: new Date(f.created_at), v: parseFloat(f.field1)}));
+
+    points = downsample(points, cfg.maxPoints);
+    currentHistoryPoints = points;
+    drawChart(points);
+  } catch (e){
+    chartEl.innerHTML = '';
+  }
+}
+
+function drawChart(points){
+  const ns = 'http://www.w3.org/2000/svg';
+  chartEl.innerHTML = '';
+  if (points.length < 2){
+    rangeStartEl.textContent = '';
+    rangeEndEl.textContent = '';
+    return;
+  }
+
+  const w = 300, h = 110, padTop = 10, padBottom = 10;
+  const minT = points[0].t.getTime();
+  const maxT = points[points.length - 1].t.getTime();
+  const rangeT = (maxT - minT) || 1;
+  const minV = 0;
+  const maxV = 100;
+
+  function xFor(t){ return ((t - minT) / rangeT) * w; }
+  function yFor(v){ return h - padBottom - ((v - minV) / (maxV - minV)) * (h - padTop - padBottom); }
+
+  const linePts = points.map(p => `${xFor(p.t.getTime()).toFixed(1)},${yFor(p.v).toFixed(1)}`).join(' ');
+  const areaPts = `0,${h} ${linePts} ${w},${h}`;
+
+  const area = document.createElementNS(ns, 'polygon');
+  area.setAttribute('points', areaPts);
+  area.setAttribute('fill', 'var(--water)');
+  area.setAttribute('opacity', '0.10');
+  chartEl.appendChild(area);
+
+  const line = document.createElementNS(ns, 'polyline');
+  line.setAttribute('points', linePts);
+  line.setAttribute('fill', 'none');
+  line.setAttribute('stroke', 'var(--water)');
+  line.setAttribute('stroke-width', '2');
+  line.setAttribute('stroke-linecap', 'round');
+  line.setAttribute('stroke-linejoin', 'round');
+  chartEl.appendChild(line);
+
+  const marker = document.createElementNS(ns, 'circle');
+  marker.setAttribute('r', '3');
+  marker.setAttribute('fill', 'var(--water)');
+  marker.style.display = 'none';
+  chartEl.appendChild(marker);
+
+  rangeStartEl.textContent = points[0].t.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'});
+  rangeEndEl.textContent = points[points.length - 1].t.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'});
+
+  function nearestPoint(clientX){
+    const rect = chartEl.getBoundingClientRect();
+    const relX = ((clientX - rect.left) / rect.width) * w;
+    let best = points[0], bestDist = Infinity;
+    for (const p of points){
+      const d = Math.abs(xFor(p.t.getTime()) - relX);
+      if (d < bestDist){ bestDist = d; best = p; }
+    }
+    return best;
+  }
+
+  function showTooltip(clientX, clientY){
+    const p = nearestPoint(clientX);
+    marker.setAttribute('cx', xFor(p.t.getTime()).toFixed(1));
+    marker.setAttribute('cy', yFor(p.v).toFixed(1));
+    marker.style.display = 'block';
+
+    const wrapRect = chartEl.parentElement.getBoundingClientRect();
+    tooltipEl.style.display = 'block';
+    tooltipEl.style.left = (clientX - wrapRect.left) + 'px';
+    tooltipEl.style.top = (yFor(p.v) / h * chartEl.getBoundingClientRect().height) + 'px';
+    tooltipEl.textContent = Math.round(p.v) + '% · ' + p.t.toLocaleString('fr-FR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+  }
+
+  function hideTooltip(){
+    marker.style.display = 'none';
+    tooltipEl.style.display = 'none';
+  }
+
+  chartEl.addEventListener('pointermove', e => showTooltip(e.clientX, e.clientY));
+  chartEl.addEventListener('pointerleave', hideTooltip);
+  chartEl.addEventListener('touchstart', e => {
+    if (e.touches[0]) showTooltip(e.touches[0].clientX, e.touches[0].clientY);
+  }, {passive:true});
 }
 
 document.getElementById('btn-save').addEventListener('click', () => {
   const channel = document.getElementById('in-channel').value.trim();
   const key = document.getElementById('in-key').value.trim();
-  if (!channel){
-    return;
-  }
-  saveConfig(channel, key);
-  loadData();
+  const capacity = document.getElementById('in-capacity').value.trim();
+  if (!channel) return;
+  saveConfig(channel, key, capacity);
+  loadLatest();
+  loadHistory(currentPeriod);
 });
 
-document.getElementById('btn-refresh').addEventListener('click', loadData);
+document.getElementById('btn-refresh').addEventListener('click', () => {
+  loadLatest();
+  loadHistory(currentPeriod);
+});
+
 document.getElementById('btn-settings').addEventListener('click', () => {
-  const {channel, key} = getConfig();
+  const {channel, key, capacity} = getConfig();
   document.getElementById('in-channel').value = channel;
   document.getElementById('in-key').value = key;
+  document.getElementById('in-capacity').value = capacity;
   setupEl.classList.remove('hidden');
   dashEl.classList.add('hidden');
 });
 
-loadData();
-setInterval(loadData, 60000);
+document.getElementById('btn-export').addEventListener('click', () => {
+  if (currentHistoryPoints.length === 0) return;
+  const {capacity} = getConfig();
+  const cap = parseFloat(capacity);
+  const hasCap = cap && cap > 0;
+
+  let csv = hasCap ? 'Date;Heure;Niveau (%);Volume (L)\n' : 'Date;Heure;Niveau (%)\n';
+  currentHistoryPoints.forEach(p => {
+    const d = p.t.toLocaleDateString('fr-FR');
+    const h = p.t.toLocaleTimeString('fr-FR');
+    const pct = Math.round(p.v * 10) / 10;
+    if (hasCap){
+      const vol = Math.round(p.v / 100 * cap);
+      csv += `${d};${h};${pct};${vol}\n`;
+    } else {
+      csv += `${d};${h};${pct}\n`;
+    }
+  });
+
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `niveau_chateau_eau_${currentPeriod}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab');
+  if (!btn) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  currentPeriod = btn.dataset.period;
+  loadHistory(currentPeriod);
+});
+
+document.getElementById('trendTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.trend-tab');
+  if (!btn) return;
+  document.querySelectorAll('.trend-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  currentTrendPeriod = btn.dataset.period;
+  loadTrend();
+});
+
+loadLatest();
+loadHistory(currentPeriod);
+setInterval(loadLatest, 60000);
 </script>
 
 </body>
